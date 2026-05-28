@@ -1,0 +1,98 @@
+name: CD
+
+on: # Define when it will happen
+  push: # When a PR is approved and merged, it creates a push to the main branch, which will trigger the CD workflow
+    branches: [main, preprod, prod] # Trigger CD on these pushes to main, preprod, and prod branches
+
+env: # Define environment variables that will be used in the workflow
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: mlops-model-ecr-repository
+  LAMBDA_FUNCTION_PREFIX:  mlops-model
+
+jobs:
+  deploy:
+    name: Build → Push ECR → Deploy Lambda 
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+
+    steps:
+      - name: Set environment variables # Set the LAMBDA_FUNCTION variable based on the branch being pushed to, saves on $GITHUB_ENV
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "LAMBDA_FUNCTION=${LAMBDA_FUNCTION_PREFIX}-prod" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == "refs/heads/preprod" ]]; then
+            echo "LAMBDA_FUNCTION=${LAMBDA_FUNCTION_PREFIX}-preprod" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == "refs/heads/prod" ]]; then
+            echo "LAMBDA_FUNCTION=${LAMBDA_FUNCTION_PREFIX}-prod" >> $GITHUB_ENV
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4 # Copy the code from the repository to the running instance
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4 # AWS action to configure AWS credentials for subsequent AWS CLI commands
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }} # Use GitHub Secrets to securely provide AWS credentials
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2 # AWS action to log in to Amazon ECR, we will be pushing Docker images
+
+      - name: Build, tag and push image to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }} # Get the ECR registry URI from the previous login step
+          IMAGE_TAG:    ${{ github.sha }} # Use the commit SHA as the image tag for traceability
+        run: | 
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+          docker build -t "$IMAGE_URI" .
+          docker push  "$IMAGE_URI"
+
+          docker tag  "$IMAGE_URI" "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+        # Construct the full image URI with registry, repository, and tag
+        # Build the Docker image using the Dockerfile in the repository and tag it with the constructed URI
+        # Push the tagged image to ECR
+        # Also tag the same image as "latest" and push that tag to ECR
+        # Save the image URI as an output variable in the GitHub Actions context
+
+      - name: Update Lambda function code
+        env:
+          IMAGE_URI: ${{ steps.build-image.outputs.image_uri }} # Get the image URI from the previous build step
+        run: |
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION" \
+            --image-uri     "$IMAGE_URI"
+        # Update the AWS Lambda function's code to use the new Docker image by specifying the image URI
+
+      - name: Wait for Lambda update
+        run: |
+          aws lambda wait function-updated \
+            --function-name "$LAMBDA_FUNCTION"
+        # Wait for the Lambda function update to complete before proceeding, ensures that the new code is deployed and ready
+
+      - name: Smoke test, invoke Lambda directly # Simple smoke test to check if the lambda function returns an output
+        run: |
+          aws lambda invoke \
+            --function-name "$LAMBDA_FUNCTION" \
+            --payload '{"body": "{\"features\": [1.0, 2.0, 3.0, 4.0]}"}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+
+          echo "=== Lambda response ==="
+          cat response.json
+
+          grep -q "prediction" response.json || \
+            (echo "Smoke test failed — 'prediction' not found." && exit 1)
+
+          echo "Smoke test passed."
+        # Invoke the Lambda function directly using the AWS CLI 
+        # with a sample payload,
+        # saves the response to a file.
+        
+        # Checks if the response contains the word "prediction" to verify that the function is working as expected, 
+        # otherwise fails the workflow
