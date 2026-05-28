@@ -1,36 +1,36 @@
 name: CI
 
-on:
+on: # Define when it will happen
   push:
-    branches: [main]
+    branches: [main] # Trigger CI on pushes to main branch
   pull_request:
-    branches: [main]
+    branches: [main] # Trigger CI on PRs targeting main branch
 
 jobs:
   lint-and-test:
     name: Lint & Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
 
     steps:
-      - name: Checkout
+      - name: Checkout # Copy the code from the repository to the running instance
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.11
+      - name: Setup Python 3.11 # Install Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Install dependencies
+      - name: Install dependencies # Install the dependencies as the Makefile defines
         run: make install
 
-      - name: Lint (ruff)
+      - name: Lint (ruff) # Run the linter to check code quality and style, fails if issues are found
         run: make lint
 
-      - name: Run tests with coverage
+      - name: Run tests with coverage # Run tests and generate coverage report
         run: make test
 
-      - name: Upload coverage report
+      - name: Upload coverage report # Upload the coverage report as an artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
@@ -39,11 +39,11 @@ jobs:
   build:
     name: Build Docker Image
     needs: lint-and-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
 
     steps:
-      - name: Checkout
+      - name: Checkout # Copy the code from the repository to the running instance
         uses: actions/checkout@v4
 
-      - name: Build image
+      - name: Build image # Build the Docker image
         run: make build
