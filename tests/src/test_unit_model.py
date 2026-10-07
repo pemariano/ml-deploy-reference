@@ -1,15 +1,16 @@
 """
 tests/test_unit_model.py — Unit tests for the model.
 """
+
 import numpy as np
 import pytest
 
-from model import train, predict
-
+from model import predict, train
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def trained_model(tmp_path, monkeypatch):
@@ -28,6 +29,7 @@ def trained_model(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Model Tests
 # ---------------------------------------------------------------------------
+
 
 def test_prediction_returns_expected_fields():
     """Test that predict returns the expected dictionary keys."""

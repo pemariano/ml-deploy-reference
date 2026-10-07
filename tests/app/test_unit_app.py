@@ -1,16 +1,15 @@
 """
 tests/test_lambda_handler.py — Unit tests for the AWS Lambda handler.
 """
+
 import json
 
-import pytest
-
 from app import handler
-
 
 # ---------------------------------------------------------------------------
 # Helper Functions
 # ---------------------------------------------------------------------------
+
 
 def _event(features):
     """Create a mock Lambda event with the given features.
@@ -27,6 +26,7 @@ def _event(features):
 # ---------------------------------------------------------------------------
 # Lambda Handler Tests
 # ---------------------------------------------------------------------------
+
 
 def test_handler_returns_200_with_valid_features():
     """Test that handler returns 200 status code with valid features."""

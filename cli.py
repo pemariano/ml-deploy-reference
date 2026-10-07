@@ -5,12 +5,14 @@ Usage:
     python cli.py train
     python cli.py predict --features "1.0,2.0,3.0,4.0"
 """
+
 import json
 
 import click
 import numpy as np
 
-from src.model import predict as model_predict, train as model_train
+from src.model import predict as model_predict
+from src.model import train as model_train
 
 
 @click.group()
@@ -41,7 +43,9 @@ def predict(features: str):
     try:
         X = [float(f.strip()) for f in features.split(",")]
     except ValueError:
-        raise click.BadParameter("All features must be numeric values separated by commas.")
+        raise click.BadParameter(
+            "All features must be numeric values separated by commas."
+        )
 
     result = model_predict(X)
     click.echo(json.dumps(result, indent=2))

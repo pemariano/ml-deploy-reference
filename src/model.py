@@ -2,6 +2,7 @@
 model.py — Placeholder of a ML model.
 Focus on the MLOps pipeline.
 """
+
 import os
 
 import joblib
