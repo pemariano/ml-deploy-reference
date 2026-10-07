@@ -6,8 +6,8 @@ Receives events from API Gateway (proxy integration) and return predictions.
 import json
 import logging
 
-from src.model import predict
-from src.status_code_enum import StatusCodeEnum
+from model import predict
+from status_code_enum import StatusCodeEnum
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
