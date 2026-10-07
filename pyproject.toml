@@ -1,0 +1,26 @@
+[project]
+name = "ml-deploy-reference"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Pedro Mariano", email = "pmarianousp@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.5.0",
+    "numpy>=2.5.3",
+    "scikit-learn>=1.9.1",
+]
+
+[project.scripts]
+ml-deploy-reference = "ml_deploy_reference:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
