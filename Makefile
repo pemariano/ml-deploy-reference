@@ -10,6 +10,9 @@ help:           ## Show this help
 install:        ## Install dependencies via uv
 	uv sync
 
+pre-commit:     ## Run pre-commit on all files
+	uv run pre-commit run --all-files
+
 lint:           ## Lint with ruff (check style and static errors)
 	uv run ruff check .
 	uv run ruff format --check .
