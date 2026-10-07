@@ -7,20 +7,19 @@ help:           ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-install:        ## Install dependencies
-	pip install --upgrade pip
-	pip install -r requirements.txt
+install:        ## Install dependencies via uv
+	uv sync
 
 lint:           ## Lint with ruff (check style and static errors)
-	ruff check .
-	ruff format --check .
+	uv run ruff check .
+	uv run ruff format --check .
 
 format:         ## Auto format code
-	ruff format .
-	ruff check --fix .
+	uv run ruff format .
+	uv run ruff check --fix .
 
 test:           ## Run tests with coverage
-	pytest tests/ -v --cov=. --cov-report=term-missing --cov-fail-under=80
+	uv run pytest tests/ -v --cov=. --cov-report=term-missing --cov-fail-under=80
 
 build:          ## Build Docker image
 	docker build -t $(IMAGE_NAME):latest .
@@ -38,4 +37,5 @@ clean:          ## Remove generated artifacts
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.pyc" -delete
 	rm -f model.joblib
+	rm -rf .venv
 	docker rmi $(IMAGE_NAME):latest 2>/dev/null || true
