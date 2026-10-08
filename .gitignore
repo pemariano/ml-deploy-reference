@@ -221,3 +221,6 @@ __marimo__/
 
 # Model
 *.joblib
+
+# AI instructions
+copilot-instructions.md
