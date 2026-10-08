@@ -3,8 +3,8 @@ model.py — Placeholder of a ML model.
 Focus on the MLOps pipeline.
 """
 
-import os
 import logging
+import os
 from functools import lru_cache
 
 import joblib
