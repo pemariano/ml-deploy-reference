@@ -1,50 +1,117 @@
 """
-tests/test_unit_model.py — Unit tests for the model.
+tests/test_model.py — Unit tests for the model module.
+
+Run with:
+    uv run pytest tests/test_model.py -v
 """
 
+import json
+
+import joblib
 import numpy as np
 import pytest
+from sklearn.linear_model import LogisticRegression
 
-from model import predict, train
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+from src import model as model_module
 
 
-@pytest.fixture(autouse=True)
-def trained_model(tmp_path, monkeypatch):
-    """Train a model in a temporary directory before each test.
-
-    Args:
-        tmp_path: Pytest temporary directory path.
-        monkeypatch: Pytest monkeypatch fixture to modify environment variables.
-    """
-    monkeypatch.setenv("MODEL_PATH", str(tmp_path / "model.joblib"))
-    X = np.random.randn(100, 4)
-    y = (X[:, 0] > 0).astype(int)
-    train(X, y)
+@pytest.fixture
+def model_path(tmp_path, monkeypatch):
+    """Redirect MODEL_PATH to a temporary file so tests never touch the real model."""
+    path = tmp_path / "model.joblib"
+    monkeypatch.setattr(model_module, "MODEL_PATH", str(path))
+    return path
 
 
-# ---------------------------------------------------------------------------
-# Model Tests
-# ---------------------------------------------------------------------------
+@pytest.fixture
+def trained_model(model_path):
+    np.random.seed(0)
+    return model_module.train()
 
 
-def test_prediction_returns_expected_fields():
-    """Test that predict returns the expected dictionary keys."""
-    result = predict([1.0, 2.0, 3.0, 4.0])
-    assert "prediction" in result
-    assert "probability" in result
+class TestTrain:
+    def test_given_writable_model_path_when_training_then_returns_fitted_logistic_regression(
+        self, model_path
+    ):
+        model = model_module.train()
+
+        assert isinstance(model, LogisticRegression)
+        assert model.coef_.shape == (1, 4)
+
+    def test_given_writable_model_path_when_training_then_persists_model_to_model_path(
+        self, model_path
+    ):
+        model_module.train()
+
+        assert model_path.exists()
+        assert isinstance(joblib.load(model_path), LogisticRegression)
+
+    def test_given_trained_model_when_predicting_known_samples_then_learns_the_sum_rule(
+        self, trained_model
+    ):
+        """The model must learn that class is 1 when X[0] + X[1] > 0."""
+        assert trained_model.predict([[2.0, 2.0, 0.0, 0.0]])[0] == 1
+        assert trained_model.predict([[-2.0, -2.0, 0.0, 0.0]])[0] == 0
 
 
-def test_probability_within_valid_range():
-    """Test that probability value is between 0.0 and 1.0."""
-    result = predict([1.0, 2.0, 3.0, 4.0])
-    assert 0.0 <= result["probability"] <= 1.0
+class TestLoad:
+    def test_given_saved_model_when_loading_then_returns_equivalent_model(
+        self, trained_model
+    ):
+        loaded = model_module.load()
+
+        assert isinstance(loaded, LogisticRegression)
+        np.testing.assert_array_equal(loaded.coef_, trained_model.coef_)
+
+    def test_given_no_saved_model_when_loading_then_raises_file_not_found(
+        self, model_path
+    ):
+        with pytest.raises(FileNotFoundError):
+            model_module.load()
 
 
-def test_prediction_is_integer():
-    """Test that prediction value is an integer."""
-    result = predict([1.0, 2.0, 3.0, 4.0])
-    assert isinstance(result["prediction"], int)
+class TestPredict:
+    def test_given_trained_model_when_predicting_then_returns_prediction_and_probability(
+        self, trained_model
+    ):
+        result = model_module.predict([1.0, 2.0, 3.0, 4.0])
+
+        assert set(result) == {"prediction", "probability"}
+        assert result["prediction"] in (0, 1)
+        assert 0.5 <= result["probability"] <= 1.0
+        assert result["probability"] == round(result["probability"], 4)
+
+    def test_given_trained_model_when_predicting_then_result_is_json_serializable(
+        self, trained_model
+    ):
+        result = model_module.predict([1.0, 2.0, 3.0, 4.0])
+
+        assert isinstance(result["prediction"], int)
+        assert isinstance(result["probability"], float)
+        json.dumps(result)  # must not raise
+
+    @pytest.mark.parametrize(
+        "features, expected_class",
+        [
+            ([2.0, 2.0, 0.0, 0.0], 1),
+            ([-2.0, -2.0, 0.0, 0.0], 0),
+        ],
+    )
+    def test_given_clearly_separable_features_when_predicting_then_returns_expected_class(
+        self, trained_model, features, expected_class
+    ):
+        result = model_module.predict(features)
+
+        assert result["prediction"] == expected_class
+
+    def test_given_no_saved_model_when_predicting_then_raises_file_not_found(
+        self, model_path
+    ):
+        with pytest.raises(FileNotFoundError):
+            model_module.predict([1.0, 2.0, 3.0, 4.0])
+
+    def test_given_wrong_number_of_features_when_predicting_then_raises_value_error(
+        self, trained_model
+    ):
+        with pytest.raises(ValueError):
+            model_module.predict([1.0, 2.0])

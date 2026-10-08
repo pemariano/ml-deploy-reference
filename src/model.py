@@ -24,7 +24,7 @@ def _generate_training_data():
     return X, y
 
 
-def train(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
+def train() -> LogisticRegression:
     """
     Train the model and persist it to disk.
 
