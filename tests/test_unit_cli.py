@@ -1,8 +1,8 @@
 """
-tests/test_cli.py — Unit tests for the CLI.
+tests/test_unit_cli.py — Unit tests for the CLI.
 
 Run with:
-    uv run pytest tests/test_cli.py -v
+    uv run pytest tests/test_unit_cli.py -v
 """
 
 import json
@@ -54,56 +54,23 @@ class TestCliGroup:
 # Command: train
 # ---------------------------------------------------------------------------
 class TestTrainCommand:
-    def test_given_mocked_model_when_running_train_then_exits_successfully_and_trains_once(
+    def test_given_mocked_model_when_running_train_then_calls_model_train_once_and_exits_successfully(
         self, runner
     ):
         with patch.object(cli_module, "model_train") as mock_train:
             result = runner.invoke(cli, ["train"])
 
         assert result.exit_code == 0
-        mock_train.assert_called_once()
+        mock_train.assert_called_once_with()
 
-    def test_given_mocked_model_when_running_train_then_labels_are_binary(self, runner):
-        with patch.object(cli_module, "model_train") as mock_train:
-            runner.invoke(cli, ["train"])
-
-        _, y = mock_train.call_args.args
-        assert set(np.unique(y)).issubset({0, 1})
-
-    def test_given_generated_data_when_running_train_then_labels_follow_sum_of_first_two_features_rule(
+    def test_given_mocked_model_when_running_train_then_prints_progress_and_success_messages(
         self, runner
     ):
-        """y must be 1 when X[:, 0] + X[:, 1] > 0, and 0 otherwise."""
-        with patch.object(cli_module, "model_train") as mock_train:
-            runner.invoke(cli, ["train"])
+        with patch.object(cli_module, "model_train"):
+            result = runner.invoke(cli, ["train"])
 
-        X, y = mock_train.call_args.args
-        expected = (X[:, 0] + X[:, 1] > 0).astype(int)
-        np.testing.assert_array_equal(y, expected)
-
-    def test_given_no_fixed_seed_when_running_train_twice_then_generates_different_data(
-        self, runner
-    ):
-        with patch.object(cli_module, "model_train") as mock_train:
-            runner.invoke(cli, ["train"])
-            runner.invoke(cli, ["train"])
-
-        X1 = mock_train.call_args_list[0].args[0]
-        X2 = mock_train.call_args_list[1].args[0]
-        assert not np.array_equal(X1, X2)
-
-    def test_given_same_fixed_seed_when_running_train_twice_then_generates_identical_data(
-        self, runner
-    ):
-        with patch.object(cli_module, "model_train") as mock_train:
-            np.random.seed(42)
-            runner.invoke(cli, ["train"])
-            np.random.seed(42)
-            runner.invoke(cli, ["train"])
-
-        X1 = mock_train.call_args_list[0].args[0]
-        X2 = mock_train.call_args_list[1].args[0]
-        np.testing.assert_array_equal(X1, X2)
+        assert "Training model..." in result.output
+        assert "Model trained and saved successfully." in result.output
 
     def test_given_model_training_fails_when_running_train_then_propagates_exception_without_success_message(
         self, runner
