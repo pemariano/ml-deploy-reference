@@ -1,13 +1,14 @@
 """
 app.py — AWS Lambda handler.
-Receives events from API Gateway (proxy integration) and return predictions.
+Receives events from API Gateway (proxy integration) and returns predictions.
 """
 
 import json
 import logging
+import math
 
-from model import predict
-from status_code_enum import StatusCodeEnum
+from src.model import load, predict
+from src.status_code_enum import StatusCodeEnum
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -24,29 +25,61 @@ def handler(event: dict, context) -> dict:
     Returns:
         dict: A response object with status code, headers, and body containing the prediction result or error message.
     """
-    logger.info("Event received: %s", json.dumps(event))
+    logger.info("Event received.")
+    logger.debug("Event payload: %s", json.dumps(event, default=str))
 
     try:
         body = json.loads(event.get("body") or "{}")
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         return _response(
             StatusCodeEnum.BAD_REQUEST, {"Error": "Body isn't valid JSON."}
         )
 
+    if not isinstance(body, dict):
+        return _response(
+            StatusCodeEnum.BAD_REQUEST, {"Error": "Body must be a JSON object."}
+        )
+
     features = body.get("features")
-    if not features or not isinstance(features, list):
+    if not _is_valid_features(features):
         return _response(
             StatusCodeEnum.BAD_REQUEST,
-            {"Error": "Field 'features' is required and must be a list."},
+            {"Error": "Field 'features' must be a non-empty list of finite numbers."},
         )
 
     try:
+        expected_features = load().n_features_in_
+        if len(features) != expected_features:
+            return _response(
+                StatusCodeEnum.BAD_REQUEST,
+                {
+                    "Error": f"Expected {expected_features} features, "
+                    f"got {len(features)}."
+                },
+            )
+
         result = predict(features)
-        logger.info("Prediction: %s", result)
-        return _response(StatusCodeEnum.SUCCESS, result)
-    except Exception as exc:
+    except Exception:
+        # Details go to the logs only; the client gets a generic message.
         logger.exception("Error in prediction.")
-        return _response(StatusCodeEnum.INTERNAL_SERVER_ERROR, {"Error": str(exc)})
+        return _response(
+            StatusCodeEnum.INTERNAL_SERVER_ERROR, {"Error": "Internal server error."}
+        )
+
+    logger.info("Prediction: %s", result)
+    return _response(StatusCodeEnum.SUCCESS, result)
+
+
+def _is_valid_features(features) -> bool:
+    """Return True if features is a non-empty list of finite numbers (booleans excluded)."""
+    return (
+        isinstance(features, list)
+        and len(features) > 0
+        and all(
+            isinstance(f, (int, float)) and not isinstance(f, bool) and math.isfinite(f)
+            for f in features
+        )
+    )
 
 
 def _response(status_code: StatusCodeEnum, body: dict) -> dict:
@@ -61,7 +94,7 @@ def _response(status_code: StatusCodeEnum, body: dict) -> dict:
         dict: A response object with the specified status code, JSON-encoded body, and appropriate headers for API Gateway.
     """
     return {
-        "statusCodeEnum": status_code.value,
+        "statusCode": status_code.value,
         "headers": {"Content-Type": "application/json"},
         "body": json.dumps(body),
     }
