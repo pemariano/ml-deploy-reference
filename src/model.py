@@ -4,12 +4,24 @@ Focus on the MLOps pipeline.
 """
 
 import os
+import logging
 
 import joblib
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 
+logger = logging.getLogger()
+
+
 MODEL_PATH = os.getenv("MODEL_PATH", "model.joblib")
+
+
+def _generate_training_data():
+    """Generate synthetic training data for demonstration purposes."""
+    logger.info("Generating training data...")
+    X = np.random.randn(200, 4)
+    y = (X[:, 0] + X[:, 1] > 0).astype(int)
+    return X, y
 
 
 def train(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
@@ -23,6 +35,7 @@ def train(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
     Returns:
         Trained LogisticRegression model.
     """
+    X, y = _generate_training_data()
     model = LogisticRegression(max_iter=200)
     model.fit(X, y)
     joblib.dump(model, MODEL_PATH)
