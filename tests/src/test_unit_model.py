@@ -1,11 +1,12 @@
 """
-tests/test_model.py — Unit tests for the model module.
+tests/test_unit_model.py — Unit tests for the model module.
 
 Run with:
-    uv run pytest tests/test_model.py -v
+    uv run pytest tests/test_unit_model.py -v
 """
 
 import json
+from unittest.mock import patch
 
 import joblib
 import numpy as np
@@ -20,7 +21,9 @@ def model_path(tmp_path, monkeypatch):
     """Redirect MODEL_PATH to a temporary file so tests never touch the real model."""
     path = tmp_path / "model.joblib"
     monkeypatch.setattr(model_module, "MODEL_PATH", str(path))
-    return path
+    model_module.load.cache_clear()
+    yield path
+    model_module.load.cache_clear()
 
 
 @pytest.fixture
@@ -68,6 +71,29 @@ class TestLoad:
     ):
         with pytest.raises(FileNotFoundError):
             model_module.load()
+
+    def test_given_saved_model_when_loading_twice_then_reads_file_only_once(
+        self, trained_model
+    ):
+        with patch.object(
+            model_module.joblib, "load", wraps=model_module.joblib.load
+        ) as spy_load:
+            first = model_module.load()
+            second = model_module.load()
+
+        assert first is second
+        spy_load.assert_called_once()
+
+    def test_given_cached_model_when_training_again_then_load_returns_the_new_model(
+        self, trained_model
+    ):
+        cached = model_module.load()
+
+        retrained = model_module.train()
+        reloaded = model_module.load()
+
+        assert reloaded is not cached
+        np.testing.assert_array_equal(reloaded.coef_, retrained.coef_)
 
 
 class TestPredict:

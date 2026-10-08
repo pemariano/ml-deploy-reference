@@ -5,6 +5,7 @@ Focus on the MLOps pipeline.
 
 import os
 import logging
+from functools import lru_cache
 
 import joblib
 import numpy as np
@@ -26,11 +27,7 @@ def _generate_training_data():
 
 def train() -> LogisticRegression:
     """
-    Train the model and persist it to disk.
-
-    Args:
-        X: Feature matrix of shape (n_samples, n_features).
-        y: Target vector of shape (n_samples,).
+    Train the model with synthetic data and persist it to disk.
 
     Returns:
         Trained LogisticRegression model.
@@ -39,12 +36,18 @@ def train() -> LogisticRegression:
     model = LogisticRegression(max_iter=200)
     model.fit(X, y)
     joblib.dump(model, MODEL_PATH)
+    load.cache_clear()
     return model
 
 
+@lru_cache(maxsize=1)
 def load() -> LogisticRegression:
     """
     Load the model saved on disk.
+
+    The model is cached in memory, so warm Lambda invocations (and repeated
+    calls within the same process) don't read the file again. Call
+    `load.cache_clear()` to force a reload.
 
     Returns:
         Loaded LogisticRegression model.
