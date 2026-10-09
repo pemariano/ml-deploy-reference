@@ -60,8 +60,8 @@ jobs:
       - name: Invoke handler (smoke test)
         run: make invoke | tee response.json
 
-      - name: Assert response contains predicao
-        run: grep -q "predicao" response.json
+      - name: Assert response contains prediction
+        run: grep -q "prediction" response.json
 
       - name: Stop container
         if: always()
