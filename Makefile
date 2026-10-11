@@ -1,7 +1,7 @@
 IMAGE_NAME  := mlops-model
 LAMBDA_PORT := 9000
 
-.PHONY: help install lint format test build run invoke clean
+.PHONY: help install lint format test build run invoke clean deploy destroy
 
 help:           ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -42,3 +42,9 @@ clean:          ## Remove generated artifacts
 	rm -f model.joblib
 	rm -rf .venv
 	docker rmi $(IMAGE_NAME):latest 2>/dev/null || true
+
+deploy:         ## Deploy the model to AWS Lambda
+	./scripts/deploy.sh
+
+destroy:        ## Destroy the deployed resources
+	./scripts/destroy.sh
