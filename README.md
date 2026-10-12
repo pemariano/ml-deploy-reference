@@ -123,13 +123,39 @@ An idle Lambda function costs nothing. The guide explains the small costs that r
 
 Python 3.13, scikit-learn, NumPy, Click, pytest, ruff, pre-commit, uv, Docker, GitHub Actions, AWS Lambda, Amazon ECR, IAM and the AWS CLI.
 
+## Known limitations
+ 
+This is a reference project, not a production system. These are the main gaps in the current version, grouped by area. Several of them are what the next section addresses.
+
+**Serving**
+ 
+- **Few controls on who can call it.** The function is exposed through a Function URL only: no API Gateway, throttling, API keys or WAF. With `AUTH_TYPE=NONE` anyone with the URL can call it and generate invocations.
+- **A narrow API contract.** The handler accepts one event shape (a proxy-style event with a JSON string body), ignores `isBase64Encoded`, and has no CORS configuration. The 4-feature input is enforced at runtime but not published as a schema (for example OpenAPI) or versioned.
+- **Sizing was not measured.** The model loads on the first request (cold start), and the 1024 MB memory and 30 s timeout were chosen without load testing.
+- **Model load** The model is trained on every image build instead of being pulled from a stored artifact. The Dockerfile trains a new model each time the image is built, rather than downloading a versioned artifact (for example from S3).
+
+**Security**
+ 
+- **The CI role is broad.** It has `AdministratorAccess`, limited only by a trust policy that accepts tokens from this repository on `main`. A least-privilege policy would be safer.
+- **Supply chain checks are partial.** GitHub Actions are pinned by version tag, not by commit SHA. ECR scans images on push, but the pipeline does not read the results, and there is no automated dependency update.
+
+**Observability and testing**
+ 
+- **Minimal observability.** Logs are plain text, and there are no custom metrics, alarms or tracing beyond the CloudWatch defaults.
+- **The AWS scripts are only linted.** `shellcheck` checks them and a real deploy exercises them, but there are no automated tests for them, and there are no load or contract tests.
+
+**Infrastructure and delivery**
+ 
+- **Shell scripts instead of infrastructure as code.** There is no state, no drift detection and no rollback: if a step fails halfway, you re-run it or destroy everything. There is a single environment, with no dev, staging or production separation.
+- **CD gates are thin.** It runs the unit tests but does not require the CI run for that commit (lint, image smoke test) to have passed. If its post-deploy smoke test fails, the function stays on the new image: there is no automatic rollback.
+- **Mixed architectures are handled by convention.** The runner is x86_64, so an `arm64` image is built under QEMU emulation (slow), and keeping the same architecture across deploys depends on the operator, because the scripts only set it when the function is created.
+
 ## What I would add next
 
 - Store model artifacts in S3 with versioning and a simple registry, and load them by version instead of baking them into the image.
 - Put API Gateway in front of the function for authentication, throttling and usage plans.
 - Observability: structured logs, CloudWatch alarms on errors and latency, and tracing.
 - Describe the infrastructure as code (Terraform or CDK) in place of the CLI scripts, with Lambda versions and aliases for canary releases.
-- Image scanning and dependency update automation in CI.
 
 ## License
 
