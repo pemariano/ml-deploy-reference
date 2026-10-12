@@ -31,7 +31,7 @@ run:            ## Run container locally on port $(LAMBDA_PORT)
 	docker run --rm -p $(LAMBDA_PORT):8080 $(IMAGE_NAME):latest
 
 invoke:         ## Invoke the handler locally (requires `make run` in another terminal)
-	curl -s -X POST \
+	@curl -s -X POST \
 		"http://localhost:$(LAMBDA_PORT)/2015-03-31/functions/function/invocations" \
 		-H "Content-Type: application/json" \
 		-d '{"body": "{\"features\": [1.0, -0.5, 2.3, 0.1]}"}' | python -m json.tool
