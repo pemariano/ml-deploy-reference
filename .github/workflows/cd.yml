@@ -1,0 +1,106 @@
+name: CD (manual)
+
+# Runs ONLY when you trigger it by hand (Actions tab -> CD (manual) -> Run workflow).
+# Nothing is created or deleted in AWS on push or on merge.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do"
+        type: choice
+        options: [deploy, destroy]
+        default: deploy
+      aws_region:
+        description: "AWS region (use the same one for deploy and destroy)"
+        type: string
+        default: us-east-1
+      arch:
+        description: "Lambda architecture (must match the existing function)"
+        type: choice
+        options: [arm64, x86_64]
+        default: arm64
+      auth_type:
+        description: "Function URL auth type (NONE makes it public)"
+        type: choice
+        options: [AWS_IAM, NONE]
+        default: AWS_IAM
+
+# id-token: write lets the job request a short-lived token from GitHub (OIDC),
+# which AWS exchanges for temporary credentials. No access keys are stored in GitHub.
+permissions:
+  id-token: write
+  contents: read
+
+# Never run two deploy/destroy operations at the same time against the same region.
+concurrency:
+  group: aws-lambda-${{ inputs.aws_region }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    # These variables are read by scripts/config.sh
+    env:
+      AWS_REGION: ${{ inputs.aws_region }}
+      ARCH: ${{ inputs.arch }}
+      AUTH_TYPE: ${{ inputs.auth_type }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
+
+      # ---- Tests run first, so a broken commit is never deployed -------------
+      - name: Install uv
+        if: inputs.action == 'deploy'
+        uses: astral-sh/setup-uv@v6
+
+      - name: Run tests
+        if: inputs.action == 'deploy'
+        run: make test
+
+      # ---- AWS access via OIDC (no stored keys) ------------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      # ---- Deploy -------------------------------------------------------------
+      # QEMU lets the x86_64 runner build an arm64 image (slower than a native build).
+      - name: Set up QEMU
+        if: inputs.action == 'deploy' && inputs.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        if: inputs.action == 'deploy'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Deploy (ECR, IAM, Lambda, Function URL)
+        if: inputs.action == 'deploy'
+        run: ./scripts/deploy.sh
+
+      - name: Smoke test (invoke the deployed function)
+        if: inputs.action == 'deploy'
+        run: |
+          aws lambda invoke \
+            --function-name mlops-model \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"body": "{\"features\": [1.0, 2.0, 3.0, 4.0]}"}' \
+            response.json
+
+          echo "=== Lambda response ==="
+          cat response.json
+
+          # Fails the job unless the handler returned 200 with a prediction.
+          jq -e '.statusCode == 200 and (.body | fromjson | has("prediction"))' response.json
+
+      # ---- Destroy ------------------------------------------------------------
+      - name: Destroy everything
+        if: inputs.action == 'destroy'
+        run: YES=1 ./scripts/destroy.sh
