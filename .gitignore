@@ -224,3 +224,6 @@ __marimo__/
 
 # AI instructions
 copilot-instructions.md
+
+# Output of `aws lambda invoke` / local smoke tests
+response.json

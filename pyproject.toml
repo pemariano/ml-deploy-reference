@@ -1,7 +1,9 @@
 [project]
 name = "ml-deploy-reference"
 version = "0.1.0"
-description = "Add your description here"
+description = "Reference implementation: a scikit-learn model served from AWS Lambda as a container image, with CI, manual CD (OIDC) and AWS CLI deployment scripts"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 readme = "README.md"
 authors = [
     { name = "Pedro Mariano", email = "pmarianousp@gmail.com" }

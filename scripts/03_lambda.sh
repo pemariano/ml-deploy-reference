@@ -4,6 +4,7 @@
 #
 # Requires: 01_ecr.sh (image pushed) and 02_iam.sh (role created).
 
+# shellcheck source=config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
 echo "==> [Lambda] Creating or updating function: ${FUNCTION_NAME}"

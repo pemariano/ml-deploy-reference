@@ -48,7 +48,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Make scripts executable
         run: chmod +x scripts/*.sh
@@ -56,15 +56,26 @@ jobs:
       # ---- Tests run first, so a broken commit is never deployed -------------
       - name: Install uv
         if: inputs.action == 'deploy'
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
 
       - name: Run tests
         if: inputs.action == 'deploy'
         run: make test
 
       # ---- AWS access via OIDC (no stored keys) ------------------------------
+      # Without this guard, an empty AWS_ROLE_ARN makes the next step fail with a confusing
+      # "Could not load credentials from any providers" error.
+      - name: Check that AWS_ROLE_ARN is configured
+        env:
+          ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "$ROLE_ARN" ]; then
+            echo "::error::Repository variable AWS_ROLE_ARN is empty or missing. Create it under Settings > Secrets and variables > Actions > Variables (not Secrets)."
+            exit 1
+          fi
+
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ inputs.aws_region }}
@@ -73,13 +84,13 @@ jobs:
       # QEMU lets the x86_64 runner build an arm64 image (slower than a native build).
       - name: Set up QEMU
         if: inputs.action == 'deploy' && inputs.arch == 'arm64'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
       - name: Set up Docker Buildx
         if: inputs.action == 'deploy'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Deploy (ECR, IAM, Lambda, Function URL)
         if: inputs.action == 'deploy'

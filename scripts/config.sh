@@ -9,6 +9,8 @@
 # -e: exit as soon as a command fails
 # -u: treat unset variables as errors
 # -o pipefail: a pipeline fails if ANY command in it fails (not only the last one)
+# These variables are consumed by the scripts that source this file.
+# shellcheck disable=SC2034
 set -euo pipefail
 
 # Absolute path of the folder where this file lives, and of the project root (one level up).

@@ -8,6 +8,7 @@
 #
 # Every step checks that the resource exists first, so it is safe to run more than once.
 
+# shellcheck source=config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
 # ---- Confirmation -----------------------------------------------------------

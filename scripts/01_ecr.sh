@@ -4,6 +4,7 @@
 #
 # ECR is AWS's private container registry. Lambda pulls your image from here.
 
+# shellcheck source=config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
 echo "==> [ECR] Checking that Docker is running"

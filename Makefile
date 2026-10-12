@@ -1,7 +1,7 @@
 IMAGE_NAME  := mlops-model
 LAMBDA_PORT := 9000
 
-.PHONY: help install lint format test build run invoke clean deploy destroy
+.PHONY: help install pre-commit lint format test build run invoke clean deploy destroy
 
 help:           ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -22,7 +22,7 @@ format:         ## Auto format code
 	uv run ruff check --fix .
 
 test:           ## Run tests with coverage
-	uv run pytest tests/ -v --cov=. --cov-report=term-missing --cov-fail-under=80
+	uv run pytest tests/ -v --cov=src --cov=app --cov=cli --cov-report=term-missing --cov-report=xml --cov-fail-under=80
 
 build:          ## Build Docker image
 	docker build -t $(IMAGE_NAME):latest .

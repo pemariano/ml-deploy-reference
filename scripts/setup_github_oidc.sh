@@ -11,6 +11,7 @@
 #
 # Safe to re-run: existing resources are reused and the trust policy is refreshed.
 
+# shellcheck source=config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
 # Required: the repository in "owner/name" form. The script stops with a message if it is missing.

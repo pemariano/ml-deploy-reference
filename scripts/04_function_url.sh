@@ -8,6 +8,7 @@
 # Safe to re-run: it creates the URL if missing, switches its auth type if it changed,
 # and keeps the permissions in sync with the chosen auth type.
 
+# shellcheck source=config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
 # Adds a statement to the function's resource-based policy, unless it already exists.

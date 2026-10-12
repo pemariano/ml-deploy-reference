@@ -4,6 +4,7 @@
 #
 # A Lambda function needs a role to be allowed to run and to write its logs to CloudWatch.
 
+# shellcheck source=config.sh
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
 echo "==> [IAM] Ensuring role exists: ${ROLE_NAME}"
