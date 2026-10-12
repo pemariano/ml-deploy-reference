@@ -14,7 +14,7 @@
 source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 
 # Required: the repository in "owner/name" form. The script stops with a message if it is missing.
-: "${GITHUB_REPO:?Set GITHUB_REPO=owner/repo, e.g. GITHUB_REPO=pedro/ml-deploy-reference}"
+: "${GITHUB_REPO:?Set GITHUB_REPO=owner/repo, e.g. GITHUB_REPO=pemariano/ml-deploy-reference}"
 
 CI_ROLE_NAME="${CI_ROLE_NAME:-github-actions-mlops-deploy}"   # name of the role GitHub will assume
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"                        # only workflows on this branch may assume it
