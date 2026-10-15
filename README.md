@@ -47,15 +47,27 @@ POST  {"features": [1.0, -0.5, 2.3, 0.1]}   ->   200  {"prediction": 1, "probabi
 | Any unexpected failure | 500 | `{"Error": "Internal server error."}` (details only in the logs) |
 
 ## Engineering decisions
-
-- **Container image instead of a zip.** The scikit-learn and NumPy stack exceeds the practical limits of a zip package, and the same image runs locally and in the cloud.
-- **The model is trained at build time and baked into the image.** The deployed function needs no external storage, and the model always matches the libraries that load it. The Dockerfile notes the production alternative: loading a versioned artifact from S3.
+ 
+Not every choice here would be right in production. They are split in two groups: what I would keep in a production system, and what I simplified on purpose because this is a study project. The gaps the second group leaves are listed under [Known limitations](#known-limitations).
+ 
+**Built to production standards**
+ 
+- **Container image instead of a zip.** The scikit-learn and NumPy stack is large and has native dependencies, and the same image runs locally and in the cloud, so what is tested is what is deployed.
 - **The model is cached in memory** (`lru_cache`), so warm invocations do not read the file again, and the cache is cleared after retraining.
-- **Client errors and server errors are kept apart.** Bad input returns 400 with a useful message, including the expected number of features read from the model itself. Internal failures return a generic 500, with the detail only in the logs, so nothing internal leaks to the caller.
-- **No long-lived cloud credentials.** CD uses GitHub's OIDC tokens. The AWS role only accepts tokens from this repository on the `main` branch.
-- **Deploys are never automatic.** The CD workflow only runs when started by hand, so no commit can create cloud resources or a bill. A matching `destroy` action removes everything.
-- **Idempotent scripts.** Every deploy step checks what already exists, so running it again updates instead of failing, and changing the function URL's auth type also fixes the permissions that go with it.
+- **Client errors and server errors are kept apart.** Input is validated before inference (finite numbers, and the number of features read from the model itself) and bad input returns 400 with a useful message. Internal failures return a generic 500, with the detail only in the logs, so nothing internal leaks to the caller.
+- **No long-lived cloud credentials.** CD uses GitHub's OIDC tokens, and the AWS role only accepts tokens from this repository on the `main` branch.
+- **Idempotent deploy scripts.** Every step checks what already exists, so running it again updates instead of failing, and changing the function URL's auth type also fixes the permissions that go with it.
 - **Reproducible builds.** Dependencies come from `uv.lock`, the `uv` image is pinned, and the pre-commit hook uses the same `ruff` version as CI.
+- **Automated gates around the deploy.** CI runs lint, tests and a smoke test of the real image. CD runs the tests before deploying, and a post-deploy smoke test fails the run unless the function returns 200 with a prediction.
+
+**Simplified because this is a study project**
+ 
+- **A placeholder model, trained at build time and baked into the image.** The deployed function needs no external storage, and the model always matches the libraries that load it. In production, the model would be a versioned artifact (for example in S3 or a registry), trained in its own pipeline and loaded by version.
+- **Deploys are manual only.** The CD workflow runs only when started by hand, so no commit can create cloud resources or a bill, and a matching `destroy` action removes everything. In production, deploys would run automatically behind approvals and checks, across several environments.
+- **AWS CLI scripts instead of infrastructure as code.** Each script is short and easy to read, which is good for learning how every service is wired. In production, Terraform or CDK would add state, drift detection and rollback.
+- **One function, one environment, and a Function URL as the endpoint.** This keeps the setup small. In production, I would put API Gateway in front for authentication and throttling, and separate dev, staging and production.
+- **A broad role for CI.** It has `AdministratorAccess`, because the deploy creates IAM roles and a least-privilege policy was not worth the effort here. In production, the policy would be narrowed to exactly what the deploy needs.
+- **Memory and timeout are defaults, not measurements.** In production, they would come from load testing.
 
 ## Quick start (local, no AWS account needed)
 
@@ -163,4 +175,4 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## Author
 
-Pedro Mariano · [github.com/pemariano](https://github.com/pemariano)
+Pedro Mariano · [GitHub](https://github.com/pemariano) · [LinkedIn](https://linkedin.com/in/pemariano)
