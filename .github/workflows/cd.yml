@@ -9,7 +9,7 @@ on:
         description: "What to do"
         type: choice
         options: [deploy, destroy, deploy-test-destroy]
-        default: deploy
+        default: deploy-test-destroy
       aws_region:
         description: "AWS region (use the same one for deploy and destroy)"
         type: string
