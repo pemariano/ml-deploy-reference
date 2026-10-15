@@ -8,7 +8,7 @@ on:
       action:
         description: "What to do"
         type: choice
-        options: [deploy, destroy]
+        options: [deploy, destroy, deploy-test-destroy]
         default: deploy
       aws_region:
         description: "AWS region (use the same one for deploy and destroy)"
@@ -55,11 +55,11 @@ jobs:
 
       # ---- Tests run first, so a broken commit is never deployed -------------
       - name: Install uv
-        if: inputs.action == 'deploy'
+        if: inputs.action == 'deploy' || inputs.action == 'deploy-test-destroy'
         uses: astral-sh/setup-uv@v7
 
       - name: Run tests
-        if: inputs.action == 'deploy'
+        if: inputs.action == 'deploy' || inputs.action == 'deploy-test-destroy'
         run: make test
 
       # ---- AWS access via OIDC (no stored keys) ------------------------------
@@ -83,21 +83,21 @@ jobs:
       # ---- Deploy -------------------------------------------------------------
       # QEMU lets the x86_64 runner build an arm64 image (slower than a native build).
       - name: Set up QEMU
-        if: inputs.action == 'deploy' && inputs.arch == 'arm64'
+        if: (inputs.action == 'deploy' || inputs.action == 'deploy-test-destroy') && inputs.arch == 'arm64'
         uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
       - name: Set up Docker Buildx
-        if: inputs.action == 'deploy'
+        if: inputs.action == 'deploy' || inputs.action == 'deploy-test-destroy'
         uses: docker/setup-buildx-action@v4
 
       - name: Deploy (ECR, IAM, Lambda, Function URL)
-        if: inputs.action == 'deploy'
+        if: inputs.action == 'deploy' || inputs.action == 'deploy-test-destroy'
         run: ./scripts/deploy.sh
 
       - name: Smoke test (invoke the deployed function)
-        if: inputs.action == 'deploy'
+        if: inputs.action == 'deploy' || inputs.action == 'deploy-test-destroy'
         run: |
           aws lambda invoke \
             --function-name mlops-model \
@@ -113,5 +113,5 @@ jobs:
 
       # ---- Destroy ------------------------------------------------------------
       - name: Destroy everything
-        if: inputs.action == 'destroy'
+        if: inputs.action == 'destroy' || inputs.action == 'deploy-test-destroy'
         run: YES=1 ./scripts/destroy.sh
